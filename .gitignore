@@ -1,0 +1,12 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Готовые сборки игры
+/сборка/
+*.exe
+*.pck
+
+# local backups
+бэкап*/
+backup*/

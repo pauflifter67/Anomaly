@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://инструменты/собрать_сцену_отеля.gd" id="1_bake"]
+
+[node name="Bake" type="Node"]
+script = ExtResource("1_bake")
