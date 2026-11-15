@@ -3,8 +3,10 @@ extends PanelContainer
 signal closed
 
 const UI = preload("res://скрипты/интерфейс/стиль.gd")
+const Loc = preload("res://скрипты/ядро/локализация.gd")
 
 var _quality_btns: Array = []
+var _lang_btns = {}
 var _reset_btn: Button
 var _reset_armed = false
 
@@ -12,40 +14,56 @@ var _reset_armed = false
 func _ready():
 	add_theme_stylebox_override("panel", UI.panel_look(UI.BG, Color(1, 1, 1, 0.07), 1, 34))
 	custom_minimum_size = Vector2(640, 0)
+	_build()
+
+
+func _build():
+	_quality_btns.clear()
+	_lang_btns.clear()
 	var v = VBoxContainer.new()
 	v.add_theme_constant_override("separation", 14)
 	add_child(v)
-	v.add_child(UI.label("SETTINGS", 30, UI.TEXT, "title"))
+	v.add_child(UI.label(Loc.t("SETTINGS"), 30, UI.TEXT, "title"))
 	v.add_child(UI.line())
 	v.add_child(UI.gap_thing(4))
 
-	var qrow = _make_a_row(v, "GRAPHICS")
+	var lrow = _make_a_row(v, "LANGUAGE / ЯЗЫК")
+	for lang in [["en", "ENGLISH"], ["ru", "РУССКИЙ"]]:
+		var lb = UI.button(lang[1], 14, 130)
+		lb.toggle_mode = true
+		lb.pressed.connect(_pick_language.bind(lang[0]))
+		lrow.add_child(lb)
+		_lang_btns[lang[0]] = lb
+	_sync_language()
+
+	var qrow = _make_a_row(v, Loc.t("GRAPHICS"))
 	for i in 3:
-		var b = UI.button(["LOW", "MEDIUM", "HIGH"][i], 14, 110)
+		var b = UI.button(Loc.t(["LOW", "MEDIUM", "HIGH"][i]), 14, 110)
 		b.toggle_mode = true
 		b.pressed.connect(_pick_fanciness.bind(i))
 		qrow.add_child(b)
 		_quality_btns.append(b)
 	_sync_fanciness()
 
-	_tickbox_thing(v, "FULLSCREEN", "fullscreen")
-	_tickbox_thing(v, "VSYNC", "vsync")
-	_tickbox_thing(v, "HEAD BOB", "head_bob")
-	_slidey_boi(v, "MOUSE SENSITIVITY", "sensitivity", 0.05, 0.6, 0.01)
-	_slidey_boi(v, "FIELD OF VIEW", "fov", 60.0, 100.0, 1.0)
-	_slidey_boi(v, "VOLUME", "volume", 0.0, 1.0, 0.01)
+	_tickbox_thing(v, Loc.t("FULLSCREEN"), "fullscreen")
+	_tickbox_thing(v, Loc.t("VSYNC"), "vsync")
+	_tickbox_thing(v, Loc.t("HEAD BOB"), "head_bob")
+	_tickbox_thing(v, Loc.t("SCREEN EFFECTS"), "fx")
+	_slidey_boi(v, Loc.t("MOUSE SENSITIVITY"), "sensitivity", 0.05, 0.6, 0.01)
+	_slidey_boi(v, Loc.t("FIELD OF VIEW"), "fov", 60.0, 100.0, 1.0)
+	_slidey_boi(v, Loc.t("VOLUME"), "volume", 0.0, 1.0, 0.01)
 
 	v.add_child(UI.gap_thing(6))
 	var brow = HBoxContainer.new()
 	brow.add_theme_constant_override("separation", 12)
 	v.add_child(brow)
-	_reset_btn = UI.button("RESET PROGRESS", 13, 200)
+	_reset_btn = UI.button(Loc.t("RESET PROGRESS"), 13, 200)
 	_reset_btn.pressed.connect(_on_big_red_button)
 	brow.add_child(_reset_btn)
 	var sp = Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	brow.add_child(sp)
-	var back = UI.button("BACK", 15, 150, true)
+	var back = UI.button(Loc.t("BACK"), 15, 150, true)
 	back.pressed.connect(func(): closed.emit())
 	brow.add_child(back)
 
@@ -108,12 +126,35 @@ func _sync_fanciness():
 		_quality_btns[i].add_theme_color_override("font_color", UI.TEXT if i == Game.quality() else UI.DIM)
 
 
+func _pick_language(lang: String):
+	if str(Game.setting("language")) == lang:
+		_sync_language()
+		return
+	Game.shove_setting("language", lang)
+	_rebuild.call_deferred()
+
+
+# Перерисовываем панель на новом языке (отложенно: кнопку, которая нас вызвала, нельзя удалять на месте).
+func _rebuild():
+	for c in get_children():
+		c.queue_free()
+	_reset_armed = false
+	_build()
+
+
+func _sync_language():
+	var cur = str(Game.setting("language"))
+	for k in _lang_btns:
+		_lang_btns[k].set_pressed_no_signal(k == cur)
+		_lang_btns[k].add_theme_color_override("font_color", UI.TEXT if k == cur else UI.DIM)
+
+
 func _on_big_red_button():
 	if not _reset_armed:
 		_reset_armed = true
-		_reset_btn.text = "CLICK AGAIN TO CONFIRM"
+		_reset_btn.text = Loc.t("CLICK AGAIN TO CONFIRM")
 		return
 	_reset_armed = false
 	Game.progress.nuke_progress()
-	_reset_btn.text = "PROGRESS RESET"
+	_reset_btn.text = Loc.t("PROGRESS RESET")
 	_reset_btn.disabled = true

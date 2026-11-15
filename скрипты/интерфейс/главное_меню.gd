@@ -5,6 +5,8 @@ const Catalog = preload("res://скрипты/карты/каталог_карт
 const Difficulty = preload("res://скрипты/сложность/сложность.gd")
 const SettingsPanel = preload("res://скрипты/интерфейс/панель_настроек.gd")
 const HotelMap = preload("res://скрипты/карты/отель.gd")
+const Loc = preload("res://скрипты/ядро/локализация.gd")
+const ScreenFx = preload("res://скрипты/эффекты/экран.gd")
 const DEVELOPERS = ["Марат", "Мишель", "Саид", "Тамир"]
 
 var cam: Camera3D
@@ -16,6 +18,7 @@ var footer_lbl: Label
 var stats_lbl: Label
 var title_box: Control
 var _t = 0.0
+var _ui_lang = ""
 var _cam_first = Vector3.ZERO
 var _cam_second = Vector3.ZERO
 
@@ -66,6 +69,8 @@ class MenuItem extends Button:
 
 func _ready():
 	get_tree().paused = false
+	Game.tutorial_mode = false
+	Game.chase_mode = false
 	bg_map = HotelMap.new()
 	add_child(bg_map)
 	bg_map.build()
@@ -79,17 +84,52 @@ func _ready():
 	_cam_second = snapshot_lol[1]
 	_process(0.0)
 
+	var fx = ScreenFx.new()
+	fx.layer = 0
+	fx.ambient_glitches = true
+	add_child(fx)
 	var layer = CanvasLayer.new()
 	add_child(layer)
 	ui = Control.new()
 	ui.set_anchors_preset(Control.PRESET_FULL_RECT)
 	layer.add_child(ui)
 	_cook_ui()
+	_ui_lang = str(Game.setting("language"))
+	Game.settings_got_changed.connect(_on_settings_changed)
 
 	Sfx.set_bg_noise("amb_hotel", -16.0)
 	Sfx.set_bg_music("music_menu", -9.0)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	await Game.come_back_to_light(1.4)
+	if not _offered_training:
+		_offered_training = true
+		_pauflifter_offer()
+
+
+# Предложение пройти обучение при запуске игры (один раз за запуск). Можно отказаться.
+static var _offered_training = false
+
+
+func _pauflifter_offer():
+	var box = UI.panel(26, Color(0.02, 0.02, 0.03, 0.94))
+	UI.anchor(box, 0.5, 0.5, -300, -110, 300, 110)
+	ui.add_child(box)
+	var v = VBoxContainer.new()
+	v.add_theme_constant_override("separation", 14)
+	box.add_child(v)
+	v.add_child(UI.label(Loc.t("PAUFLIFTER"), 12, UI.ACCENT, "wide"))
+	v.add_child(UI.wrap_text_lol(Loc.t("Yo. I'm Pauflifter. Wanna do a quick training? 30 seconds, no cap."), 22, UI.TEXT, 540))
+	var h = HBoxContainer.new()
+	h.add_theme_constant_override("separation", 14)
+	v.add_child(h)
+	var yes = UI.button(Loc.t("YES, LET'S GO"), 15, 260, true)
+	yes.pressed.connect(func():
+		box.queue_free()
+		_on_training_clicked())
+	h.add_child(yes)
+	var no = UI.button(Loc.t("NAH, I'M SIGMA"), 15, 260)
+	no.pressed.connect(func(): box.queue_free())
+	h.add_child(no)
 
 
 func _process(delta: float):
@@ -99,6 +139,23 @@ func _process(delta: float):
 	pos += Vector3(sin(_t * 0.21) * 0.05, sin(_t * 0.33) * 0.025, 0)
 	cam.position = pos
 	cam.rotation = Vector3(-0.03 + sin(_t * 0.17) * 0.012, sin(_t * 0.11) * 0.04, sin(_t * 0.07) * 0.004)
+
+
+func _on_settings_changed():
+	var lang = str(Game.setting("language"))
+	if lang == _ui_lang:
+		return
+	_ui_lang = lang
+	_rebuild_ui.call_deferred()
+
+
+# Смена языка: пересобираем меню на новом языке и возвращаемся в настройки.
+func _rebuild_ui():
+	for c in ui.get_children():
+		c.queue_free()
+	panel_right_now = null
+	_cook_ui()
+	_open_settings_pls()
 
 
 func _cook_ui():
@@ -124,19 +181,21 @@ func _cook_ui():
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(title)
 	title.add_child(UI.label("SECOND WIND", 82, UI.TEXT, "hero"))
-	title.add_child(UI.label("ANOMALY  PROTOCOL", 20, UI.ACCENT, "wide"))
+	title.add_child(UI.label(Loc.t("ANOMALY  PROTOCOL"), 20, UI.ACCENT, "wide"))
 	title.add_child(UI.gap_thing(10))
 	title.add_child(UI.line(64))
 	title.add_child(UI.gap_thing(6))
-	title.add_child(UI.label("OBSERVE.  REMEMBER.  SURVIVE.", 14, UI.DIM, "wide"))
+	title.add_child(UI.label(Loc.t("OBSERVE.  REMEMBER.  SURVIVE."), 14, UI.DIM, "wide"))
 	title_box = title
 
 	var menu = VBoxContainer.new()
-	menu.position = Vector2(100, 410)
+	menu.position = Vector2(100, 372)
 	menu.add_theme_constant_override("separation", 2)
 	ui.add_child(menu)
 	var stuff_list = [
 		["PLAY", _on_play_clicked_yay],
+		["CHASE MODE", _on_run_clicked],
+		["TRAINING", _on_training_clicked],
 		["MAP SELECT", func(): _show_some_panel(_map_picker_panel())],
 		["DIFFICULTY", func(): _show_some_panel(_how_hard_panel())],
 		["SETTINGS", _open_settings_pls],
@@ -144,7 +203,7 @@ func _cook_ui():
 		["QUIT", func(): get_tree().quit()],
 	]
 	for it in stuff_list:
-		var b = MenuItem.new(it[0])
+		var b = MenuItem.new(Loc.t(it[0]))
 		b.pressed.connect(it[1])
 		menu.add_child(b)
 
@@ -169,9 +228,9 @@ func _cook_ui():
 func _refresh_bottom_text():
 	var m = Catalog.gimme_map(Game.progress.picked_map)
 	var d = Difficulty.gimme_difficulty(Game.progress.picked_difficulty)
-	footer_lbl.text = "MAP   %s        DIFFICULTY   %s        BEST   %d" % [m["title"], d["title"], Game.progress.best_score_for_this_map(m["id"], d["id"])]
+	footer_lbl.text = Loc.t("MAP   %s        DIFFICULTY   %s        BEST   %d") % [Loc.t(m["title"]), Loc.t(d["title"]), Game.progress.best_score_for_this_map(m["id"], d["id"])]
 	var p = Game.progress
-	stats_lbl.text = "CORRIDORS CLEARED  %d     MISTAKES  %d     RUNS  %d\nHACK CLUB HAVEN  ·  BOUNCE BACK  ·  v%s" % [p.cleared_total_lol, p.oopsies_total_lol, p.runs_total_lol, ProjectSettings.get_setting("application/config/version", "0.1")]
+	stats_lbl.text = Loc.t("CORRIDORS CLEARED  %d     MISTAKES  %d     RUNS  %d\nHACK CLUB HAVEN  ·  BOUNCE BACK  ·  v%s") % [p.cleared_total_lol, p.oopsies_total_lol, p.runs_total_lol, ProjectSettings.get_setting("application/config/version", "0.1")]
 
 
 func _unhandled_input(e: InputEvent):
@@ -179,7 +238,29 @@ func _unhandled_input(e: InputEvent):
 		_close_some_panel()
 
 
+func _on_training_clicked():
+	Game.tutorial_mode = true
+	Game.chase_mode = false
+	Sfx.play("riser", -6.0)
+	Sfx.set_bg_music("")
+	Game.yeet_to_scene(Game.GAME_SCENE)
+
+
+# Режим "только погоня": бежим от монстра по выбранной карте, без аномалий
+func _on_run_clicked():
+	Game.tutorial_mode = false
+	Game.chase_mode = true
+	if not Game.progress.is_it_open_yet(Game.progress.picked_map):
+		Game.progress.picked_map = "hotel"
+	Game.progress.stuff_save_in_box()
+	Sfx.play("riser", -6.0)
+	Sfx.set_bg_music("")
+	Game.yeet_to_scene(Game.GAME_SCENE)
+
+
 func _on_play_clicked_yay():
+	Game.tutorial_mode = false
+	Game.chase_mode = false
 	if not Game.progress.is_it_open_yet(Game.progress.picked_map):
 		Game.progress.picked_map = "hotel"
 	Game.progress.stuff_save_in_box()
@@ -239,7 +320,7 @@ func _make_back_button_row(v: VBoxContainer):
 	v.add_child(UI.gap_thing(8))
 	var h = HBoxContainer.new()
 	v.add_child(h)
-	var b = UI.button("BACK", 15, 160)
+	var b = UI.button(Loc.t("BACK"), 15, 160)
 	b.pressed.connect(func(): _close_some_panel())
 	h.add_child(b)
 
@@ -248,7 +329,7 @@ func _map_picker_panel() -> Control:
 	var v = VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_FULL_RECT)
 	v.add_theme_constant_override("separation", 10)
-	_make_header(v, "MAP SELECT", "Every map is a place to learn by heart. Clear %d corridors in one run to unlock the next map. Completed maps can be replayed at any time." % Catalog.UNLOCK_ROUNDS)
+	_make_header(v, Loc.t("MAP SELECT"), Loc.t("Every map is a place to learn by heart. Clear %d corridors in one run to unlock the next map. Completed maps can be replayed at any time.") % Catalog.UNLOCK_ROUNDS)
 	var h = HBoxContainer.new()
 	h.add_theme_constant_override("separation", 18)
 	v.add_child(h)
@@ -292,26 +373,26 @@ func _map_card_thingy(m: Dictionary) -> Control:
 	var inner = VBoxContainer.new()
 	inner.add_theme_constant_override("separation", 6)
 	mc.add_child(inner)
-	inner.add_child(UI.label(m["title"], 21, UI.TEXT if open_maps else UI.DIM, "wide"))
-	inner.add_child(UI.label(m["subtitle"], 12, UI.ACCENT, "ui"))
-	var desc = UI.wrap_text_lol(m["desc"], 14, UI.DIM, 256)
+	inner.add_child(UI.label(Loc.t(m["title"]), 21, UI.TEXT if open_maps else UI.DIM, "wide"))
+	inner.add_child(UI.label(Loc.t(m["subtitle"]), 12, UI.ACCENT, "ui"))
+	var desc = UI.wrap_text_lol(Loc.t(m["desc"]), 14, UI.DIM, 256)
 	desc.custom_minimum_size.y = 84
 	inner.add_child(desc)
-	inner.add_child(UI.label("RECOMMENDED   " + m["recommend"], 11, UI.FAINT, "wide"))
+	inner.add_child(UI.label(Loc.t("RECOMMENDED   ") + Loc.t(m["recommend"]), 11, UI.FAINT, "wide"))
 	var best_pile = []
 	for d in Difficulty.ORDER:
-		best_pile.append("%s %d" % [Difficulty.gimme_difficulty(d)["title"].substr(0, 1), Game.progress.best_score_for_this_map(m["id"], d)])
-	inner.add_child(UI.label("BEST   " + "  ·  ".join(best_pile), 11, UI.FAINT, "wide"))
-	var status = "SELECTED" if selected else ("UNLOCKED" if open_maps else "LOCKED")
+		best_pile.append("%s %d" % [Loc.t(Difficulty.gimme_difficulty(d)["title"]).substr(0, 1), Game.progress.best_score_for_this_map(m["id"], d)])
+	inner.add_child(UI.label(Loc.t("BEST   ") + "  ·  ".join(best_pile), 11, UI.FAINT, "wide"))
+	var status = Loc.t("SELECTED") if selected else (Loc.t("UNLOCKED") if open_maps else Loc.t("LOCKED"))
 	var col = UI.ACCENT if selected else (UI.GOOD if open_maps else UI.BAD)
 	if not open_maps:
 		var req = Catalog.gimme_map(m["requires"])
-		inner.add_child(UI.label("LOCKED", 12, col, "wide"))
-		inner.add_child(UI.wrap_text_lol("Clear %d corridors in one run in %s." % [Catalog.UNLOCK_ROUNDS, req["title"]], 12, UI.DIM, 256))
+		inner.add_child(UI.label(Loc.t("LOCKED"), 12, col, "wide"))
+		inner.add_child(UI.wrap_text_lol(Loc.t("Clear %d corridors in one run in %s.") % [Catalog.UNLOCK_ROUNDS, Loc.t(req["title"])], 12, UI.DIM, 256))
 	else:
 		inner.add_child(UI.label(status, 12, col, "wide"))
 	inner.add_child(UI.gap_thing(6))
-	var b = UI.button("SELECTED" if selected else "SELECT", 14, 256, not selected and open_maps)
+	var b = UI.button(Loc.t("SELECTED") if selected else Loc.t("SELECT"), 14, 256, not selected and open_maps)
 	b.disabled = not open_maps or selected
 	b.pressed.connect(func():
 		Game.progress.picked_map = m["id"]
@@ -326,7 +407,7 @@ func _how_hard_panel() -> Control:
 	var v = VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_FULL_RECT)
 	v.add_theme_constant_override("separation", 10)
-	_make_header(v, "DIFFICULTY", "Difficulty changes how subtle the anomalies are, how many can appear at once, how much time you have and how many mistakes you can afford.")
+	_make_header(v, Loc.t("DIFFICULTY"), Loc.t("Difficulty changes how subtle the anomalies are, how many can appear at once, how much time you have and how many mistakes you can afford."))
 	var h = HBoxContainer.new()
 	h.add_theme_constant_override("separation", 18)
 	v.add_child(h)
@@ -340,15 +421,15 @@ func _how_hard_panel() -> Control:
 		var inner = VBoxContainer.new()
 		inner.add_theme_constant_override("separation", 8)
 		p.add_child(inner)
-		inner.add_child(UI.label(d["title"], 28, UI.TEXT, "title"))
-		inner.add_child(UI.label(d["tagline"], 16, UI.ACCENT, "serif"))
+		inner.add_child(UI.label(Loc.t(d["title"]), 28, UI.TEXT, "title"))
+		inner.add_child(UI.label(Loc.t(d["tagline"]), 16, UI.ACCENT, "serif"))
 		inner.add_child(UI.gap_thing(4))
 		for bullet in d["bullets"]:
-			inner.add_child(UI.label("—  " + bullet, 14, UI.DIM, "ui"))
+			inner.add_child(UI.label("—  " + Loc.t(bullet), 14, UI.DIM, "ui"))
 		inner.add_child(UI.gap_thing(8))
 		var m = Catalog.gimme_map(Game.progress.picked_map)
-		inner.add_child(UI.label("BEST ON %s   %d" % [m["title"], Game.progress.best_score_for_this_map(m["id"], id)], 11, UI.FAINT, "wide"))
-		var b = UI.button("SELECTED" if selected else "SELECT", 14, 248, not selected)
+		inner.add_child(UI.label(Loc.t("BEST ON %s   %d") % [Loc.t(m["title"]), Game.progress.best_score_for_this_map(m["id"], id)], 11, UI.FAINT, "wide"))
+		var b = UI.button(Loc.t("SELECTED") if selected else Loc.t("SELECT"), 14, 248, not selected)
 		b.disabled = selected
 		b.pressed.connect(func():
 			Game.progress.picked_difficulty = id
@@ -364,7 +445,7 @@ func _who_made_this_panel() -> Control:
 	var v = VBoxContainer.new()
 	v.set_anchors_preset(Control.PRESET_FULL_RECT)
 	v.add_theme_constant_override("separation", 10)
-	_make_header(v, "CREDITS", "DEVELOPERS")
+	_make_header(v, Loc.t("CREDITS"), Loc.t("DEVELOPERS"))
 	for dev in DEVELOPERS:
 		v.add_child(UI.label(dev, 24, UI.TEXT, "light"))
 	_make_back_button_row(v)

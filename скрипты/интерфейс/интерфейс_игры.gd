@@ -8,6 +8,7 @@ signal wants_again
 signal wants_out
 
 const UI = preload("res://скрипты/интерфейс/стиль.gd")
+const Loc = preload("res://скрипты/ядро/локализация.gd")
 const SettingsPanel = preload("res://скрипты/интерфейс/панель_настроек.gd")
 const MAX_ANSWER = 9
 
@@ -27,6 +28,10 @@ var hint_label_lol: Label
 var help_lbl: Label
 var toast_label_lol: Label
 var debug_lbl: Label
+var tut_box: PanelContainer
+var tut_step_lbl: Label
+var tut_title_lbl: Label
+var tut_text_lbl: Label
 
 var submit_layer: Control
 var submit_num: Label
@@ -47,6 +52,21 @@ var _timer_warn = false
 func _ready():
 	layer = 10
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_build()
+
+
+# Пересборка всего интерфейса (после смены языка). Вызывающий потом заново вызывает setup() и т.д.
+func rebuild():
+	if big_boss:
+		big_boss.queue_free()
+	_build()
+
+
+func open_settings():
+	_open_settings_pls()
+
+
+func _build():
 	big_boss = Control.new()
 	big_boss.set_anchors_preset(Control.PRESET_FULL_RECT)
 	big_boss.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -81,7 +101,7 @@ func _cook_hud():
 	big_boss.add_child(tr)
 	clock_label_lol = UI.label("", 30, UI.TEXT, "light", HORIZONTAL_ALIGNMENT_RIGHT)
 	tr.add_child(clock_label_lol)
-	oopsies_label_lol = UI.label("MISTAKES ALLOWED", 11, UI.DIM, "wide", HORIZONTAL_ALIGNMENT_RIGHT)
+	oopsies_label_lol = UI.label(Loc.t("MISTAKES ALLOWED"), 11, UI.DIM, "wide", HORIZONTAL_ALIGNMENT_RIGHT)
 	tr.add_child(oopsies_label_lol)
 	pips = HBoxContainer.new()
 	pips.alignment = BoxContainer.ALIGNMENT_END
@@ -128,6 +148,24 @@ func _cook_hud():
 	help_lbl.visible = false
 	big_boss.add_child(help_lbl)
 
+	tut_box = UI.panel(18, Color(0.02, 0.02, 0.03, 0.62))
+	UI.anchor(tut_box, 0.0, 0.0, 48, 130, 568, 330)
+	tut_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tut_box.visible = false
+	big_boss.add_child(tut_box)
+	var tv = VBoxContainer.new()
+	tv.add_theme_constant_override("separation", 6)
+	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tut_box.add_child(tv)
+	tut_step_lbl = UI.label("", 11, UI.ACCENT, "wide")
+	tv.add_child(tut_step_lbl)
+	tut_title_lbl = UI.label("", 22, UI.TEXT, "title")
+	tv.add_child(tut_title_lbl)
+	tut_text_lbl = UI.wrap_text_lol("", 20, UI.TEXT, 480)
+	tv.add_child(tut_text_lbl)
+	# выход из обучения: кнопка T (её ловит обучение.gd)
+	tv.add_child(UI.label(Loc.t("[T]  NAH, I'LL LEARN MYSELF"), 12, UI.DIM, "wide"))
+
 	debug_lbl = UI.label("", 13, Color(1, 0.5, 0.4), "ui")
 	debug_lbl.position = Vector2(48, 150)
 	debug_lbl.visible = false
@@ -143,9 +181,9 @@ func setup(map_title: String, oopsies_total_lol: int, hints: bool):
 		p.custom_minimum_size = Vector2(14, 14)
 		p.color = UI.ACCENT
 		pips.add_child(p)
-	var h = "WASD  MOVE     SHIFT  RUN     F  FLASHLIGHT     E  INTERACT     ESC  PAUSE"
+	var h = Loc.t("WASD  MOVE     SHIFT  RUN     F  FLASHLIGHT     E  INTERACT     ESC  PAUSE")
 	if hints:
-		h += "     H  HINT"
+		h += Loc.t("     H  HINT")
 	help_lbl.text = h
 
 
@@ -212,6 +250,20 @@ func toggle_help_text(v: bool):
 	t.tween_property(help_lbl, "modulate:a", 1.0 if v else 0.0, 0.8)
 
 
+func show_tutorial_step(i: int, total: int, title: String, text: String):
+	tut_step_lbl.text = Loc.t("PAUFLIFTER  ·  %d / %d") % [i, total]
+	tut_title_lbl.text = Loc.t(title)
+	tut_text_lbl.text = Loc.t(text)
+	if not tut_box.visible:
+		tut_box.visible = true
+		tut_box.modulate.a = 0.0
+		create_tween().tween_property(tut_box, "modulate:a", 1.0, 0.35)
+
+
+func hide_tutorial():
+	tut_box.visible = false
+
+
 func set_nerd_stuff(text: String):
 	debug_lbl.text = text
 
@@ -230,8 +282,8 @@ func _cook_submit():
 	v.add_theme_constant_override("separation", 12)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	p.add_child(v)
-	v.add_child(UI.label("OBSERVATION REPORT", 13, UI.ACCENT, "wide", HORIZONTAL_ALIGNMENT_CENTER))
-	v.add_child(UI.label("How many anomalies did you notice?", 24, UI.TEXT, "light", HORIZONTAL_ALIGNMENT_CENTER))
+	v.add_child(UI.label(Loc.t("OBSERVATION REPORT"), 13, UI.ACCENT, "wide", HORIZONTAL_ALIGNMENT_CENTER))
+	v.add_child(UI.label(Loc.t("How many anomalies did you notice?"), 24, UI.TEXT, "light", HORIZONTAL_ALIGNMENT_CENTER))
 	v.add_child(UI.gap_thing(8))
 	var h = HBoxContainer.new()
 	h.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -248,16 +300,16 @@ func _cook_submit():
 	plus.custom_minimum_size = Vector2(70, 70)
 	plus.pressed.connect(_bump_number.bind(1))
 	h.add_child(plus)
-	v.add_child(UI.label("← →  or  mouse wheel  ·  keys 0–9  ·  ENTER to confirm", 12, UI.FAINT, "wide", HORIZONTAL_ALIGNMENT_CENTER))
+	v.add_child(UI.label(Loc.t("← →  or  mouse wheel  ·  keys 0–9  ·  ENTER to confirm"), 12, UI.FAINT, "wide", HORIZONTAL_ALIGNMENT_CENTER))
 	v.add_child(UI.gap_thing(10))
 	var b = HBoxContainer.new()
 	b.alignment = BoxContainer.ALIGNMENT_CENTER
 	b.add_theme_constant_override("separation", 16)
 	v.add_child(b)
-	var cancel = UI.button("KEEP LOOKING", 14, 200)
+	var cancel = UI.button(Loc.t("KEEP LOOKING"), 14, 200)
 	cancel.pressed.connect(_nope)
 	b.add_child(cancel)
-	var ok = UI.button("CONFIRM", 16, 200, true)
+	var ok = UI.button(Loc.t("CONFIRM"), 16, 200, true)
 	ok.pressed.connect(_yep_thats_it)
 	b.add_child(ok)
 
@@ -310,25 +362,25 @@ func _cook_verdict():
 func show_the_verdict(kind: String, reported: int, actual: int, changes: Array, footer: String, over: bool):
 	for c in result_box.get_children():
 		c.queue_free()
-	var title = "CORRECT"
+	var title = Loc.t("CORRECT")
 	var col = UI.GOOD
 	if kind == "wrong":
-		title = "INCORRECT OBSERVATION"
+		title = Loc.t("INCORRECT OBSERVATION")
 		col = UI.BAD
 	elif kind == "timeout":
-		title = "TIME EXPIRED"
+		title = Loc.t("TIME EXPIRED")
 		col = UI.BAD
-	result_box.add_child(UI.label("OBSERVATION REPORT", 13, UI.ACCENT, "wide"))
+	result_box.add_child(UI.label(Loc.t("OBSERVATION REPORT"), 13, UI.ACCENT, "wide"))
 	result_box.add_child(UI.label(title, 40, col, "title"))
-	var line = "Anomalies present:  %d" % actual
+	var line = Loc.t("Anomalies present:  %d") % actual
 	if kind != "timeout":
-		line += "        You reported:  %d" % reported
+		line += Loc.t("        You reported:  %d") % reported
 	result_box.add_child(UI.label(line, 18, UI.TEXT, "light"))
 	result_box.add_child(UI.gap_thing(4))
 	result_box.add_child(UI.line(720 - 80, Color(1, 1, 1, 0.08), 1))
-	result_box.add_child(UI.label("WHAT WAS DIFFERENT", 12, UI.DIM, "wide"))
+	result_box.add_child(UI.label(Loc.t("WHAT WAS DIFFERENT"), 12, UI.DIM, "wide"))
 	if changes.is_empty():
-		result_box.add_child(UI.wrap_text_lol("Nothing. This corridor was exactly as it should be.", 16, UI.TEXT, 640))
+		result_box.add_child(UI.wrap_text_lol(Loc.t("Nothing. This corridor was exactly as it should be."), 16, UI.TEXT, 640))
 	for ch in changes:
 		result_box.add_child(UI.wrap_text_lol("•  " + str(ch), 16, UI.TEXT, 640))
 	result_box.add_child(UI.gap_thing(6))
@@ -337,7 +389,7 @@ func show_the_verdict(kind: String, reported: int, actual: int, changes: Array, 
 	var h = HBoxContainer.new()
 	h.alignment = BoxContainer.ALIGNMENT_END
 	result_box.add_child(h)
-	var b = UI.button("CONTINUE" if not over else "VIEW RESULTS", 15, 220, true)
+	var b = UI.button(Loc.t("CONTINUE") if not over else Loc.t("VIEW RESULTS"), 15, 220, true)
 	b.pressed.connect(_close_verdict)
 	h.add_child(b)
 	UI.show_overlay_lol(result_layer)
@@ -359,19 +411,19 @@ func _cook_pause():
 	var v = VBoxContainer.new()
 	v.add_theme_constant_override("separation", 12)
 	p.add_child(v)
-	v.add_child(UI.label("PAUSED", 34, UI.TEXT, "title"))
+	v.add_child(UI.label(Loc.t("PAUSED"), 34, UI.TEXT, "title"))
 	v.add_child(UI.line())
 	v.add_child(UI.gap_thing(6))
-	var resume = UI.button("RESUME", 15, 340, true)
+	var resume = UI.button(Loc.t("RESUME"), 15, 340, true)
 	resume.pressed.connect(func(): wants_back.emit())
 	v.add_child(resume)
-	var settings = UI.button("SETTINGS", 15, 340)
+	var settings = UI.button(Loc.t("SETTINGS"), 15, 340)
 	settings.pressed.connect(_open_settings_pls)
 	v.add_child(settings)
-	var restart = UI.button("RESTART RUN", 15, 340)
+	var restart = UI.button(Loc.t("RESTART RUN"), 15, 340)
 	restart.pressed.connect(func(): wants_again.emit())
 	v.add_child(restart)
-	var leave = UI.button("LEAVE TO MENU", 15, 340)
+	var leave = UI.button(Loc.t("LEAVE TO MENU"), 15, 340)
 	leave.pressed.connect(func(): wants_out.emit())
 	v.add_child(leave)
 
@@ -411,21 +463,21 @@ func show_rip_screen(map_title: String, diff_title: String, cleared: int, best: 
 	for c in over_box.get_children():
 		c.queue_free()
 	over_box.add_child(UI.label(map_title + "   ·   " + diff_title, 13, UI.ACCENT, "wide"))
-	over_box.add_child(UI.label("PROTOCOL TERMINATED", 40, UI.BAD, "title"))
+	over_box.add_child(UI.label(Loc.t("PROTOCOL TERMINATED"), 40, UI.BAD, "title"))
 	over_box.add_child(UI.line())
 	over_box.add_child(UI.gap_thing(6))
-	over_box.add_child(UI.label("Corridors cleared:  %d" % cleared, 22, UI.TEXT, "light"))
-	over_box.add_child(UI.label(("NEW BEST:  %d" % best) if new_best else ("Best:  %d" % best), 16, UI.GOOD if new_best else UI.DIM, "wide"))
+	over_box.add_child(UI.label(Loc.t("Corridors cleared:  %d") % cleared, 22, UI.TEXT, "light"))
+	over_box.add_child(UI.label((Loc.t("NEW BEST:  %d") % best) if new_best else (Loc.t("Best:  %d") % best), 16, UI.GOOD if new_best else UI.DIM, "wide"))
 	over_box.add_child(UI.gap_thing(10))
-	over_box.add_child(UI.wrap_text_lol("Every mistake teaches the eye. Breathe. Look again. Bounce back.", 18, UI.ACCENT, 560))
+	over_box.add_child(UI.wrap_text_lol(Loc.t("Every mistake teaches the eye. Breathe. Look again. Bounce back."), 18, UI.ACCENT, 560))
 	over_box.add_child(UI.gap_thing(14))
 	var h = HBoxContainer.new()
 	h.add_theme_constant_override("separation", 14)
 	over_box.add_child(h)
-	var again = UI.button("TRY AGAIN", 15, 260, true)
+	var again = UI.button(Loc.t("TRY AGAIN"), 15, 260, true)
 	again.pressed.connect(func(): wants_again.emit())
 	h.add_child(again)
-	var menu = UI.button("MAIN MENU", 15, 260)
+	var menu = UI.button(Loc.t("MAIN MENU"), 15, 260)
 	menu.pressed.connect(func(): wants_out.emit())
 	h.add_child(menu)
 	UI.show_overlay_lol(over_layer)

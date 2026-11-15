@@ -650,9 +650,9 @@ func make_the_anomaly_list() -> Array:
 	for k in n + 1:
 		for s in ["L", "R"]:
 			var nm: String = "lamp_%s%d" % [s, k]
-			anomaly_lights_out("lamp_off", nm, cap(label_it(nm)) + " was switched off.", 2)
-			anomaly_paint_light("lamp_red", nm, red, cap(label_it(nm)) + " was glowing red.", 1)
-			anomaly_disco("lamp_flicker", nm, cap(label_it(nm)) + " was flickering.", 1)
+			anomaly_lights_out("lamp_off", nm, cap(label_it(nm)) + " was switched off.", 2, [nm])
+			anomaly_paint_light("lamp_red", nm, red, cap(label_it(nm)) + " was glowing red.", 1, [nm])
+			anomaly_disco("lamp_flicker", nm, cap(label_it(nm)) + " was flickering.", 1, [nm])
 	for k in range(1, n - 1):
 		var tags = ["lamp_L%d" % k, "lamp_R%d" % k, "lamp_L%d" % (k + 1), "lamp_R%d" % (k + 1)]
 		add("dark_section", "sec%d" % k, "The section with rooms %d and %d was dark — four wall lamps were off." % [room(-1, k), room(1, k)], "light", 1, _yeet_lights_off.bind(tags), tags)
@@ -691,8 +691,9 @@ func make_the_anomaly_list() -> Array:
 			anomaly_swap_mat("plant_dead", pl, "leaf_dead", cap(label_it(pl)) + " had withered and turned brown.", 2)
 		else:
 			var cn = "chair_%d" % i
-			anomaly_scoot("chair_moved", cn, Vector3(0.3, 0, 0.45), 38.0, cap(label_it(cn)) + " had been moved and turned.", 3)
-			anomaly_hide_it("chair_gone", cn, cap(label_it(cn)) + " was missing.", 2)
+			anomaly_scoot("chair_moved", cn, Vector3(0.3, 0, 0.45), 38.0, cap(label_it(cn)) + " had been moved and turned.", 3, [cn])
+			anomaly_hide_it("chair_gone", cn, cap(label_it(cn)) + " was missing.", 2, "object", [cn])
+			anomaly_flip("chair_flipped", cn, 1.0, cap(label_it(cn)) + " was upside down.", 2, [cn])
 	anomaly_hide_it("ext_gone", "ext", "The fire extinguisher was missing — only its sign remained.", 2)
 	anomaly_scoot("ext_moved", "ext", Vector3(0, 0, 0.7), 0.0, "The fire extinguisher hung in a different place on the wall.", 3)
 	anomaly_show_it("suitcase", "suitcase", "An abandoned suitcase stood by the door of room 704.", 1)
@@ -726,7 +727,37 @@ func make_the_anomaly_list() -> Array:
 	anomaly_noise("knocking", "snd_knock", "knock", 5.0, 2.0, "Someone was knocking from inside room 705.", 2)
 	anomaly_noise("whisper", "snd_whisper", "whisper", 5.5, 4.0, "Whispering came from behind the door of room 712.", 2)
 	anomaly_noise("bell_ring", "bell", "bell", 7.0, -4.0, "The reception bell kept ringing by itself.", 2, ["bell"])
+
+	# ---- жуть ----
+	anomaly_show_it("blood_writing", "blood_get_out", "Red letters \"GET OUT\" were smeared on the wall near room %d." % room(-1, 3), 1, "supernatural")
+	anomaly_show_it("blood_writing", "blood_look_back", "Red letters \"DON'T LOOK BACK\" were smeared on the wall near room %d." % room(1, 5), 1, "supernatural")
+	anomaly_eyes("red_eyes", "eyes_exit", "Two red eyes watched you from the corner above the exit door.", 2)
+	anomaly_stalker("stalker", "fig_stalker", "A dark figure crept closer every time you looked away.", 1, ["figure"])
+	add("blood_door", "blood_door", "Bloody handprints were smeared on the wall next to the door of room %d." % room(-1, 4), "supernatural", 1, _yeet_show_many.bind(["blood_door", "blood_door_hands"]), ["door_L4"])
+	anomaly_warp("warp", "warp_a", 4.0, "The air in %s was warping — the walls seemed to breathe." % which_zone_is_this(2), 2)
+	anomaly_warp("warp", "warp_b", 4.0, "The air at %s was warping — the walls seemed to breathe." % which_zone_is_this(5), 2)
+	for ln in ["lamp_L3", "lamp_R5"]:
+		anomaly_heartbeat_light("lamp_heartbeat", ln, cap(label_it(ln)) + " pulsed red like a heartbeat.", 1, [ln])
+	add("door_creak", "door_R6", "The door of room %d kept slowly opening and closing by itself." % room(1, 6), "supernatural", 2, _yeet_creak.bind("door_R6"), ["door_R6"])
+	anomaly_noise("heartbeat", "snd_heart", "heartbeat", 1.25, 4.0, "A heartbeat could be heard through the wall of room %d." % room(1, 3), 2)
+	anomaly_noise("scratching", "snd_scratch", "scratch", 4.5, 3.0, "Something was scratching at the door of room %d from the inside." % room(-1, 1), 2)
+	anomaly_noise("breathing", "snd_breath", "breath", 5.0, 2.0, "Heavy breathing came from the empty lobby.", 2)
 	return lib
+
+
+func _spawn_creepy_stuff():
+	creepy_writing("blood_get_out", "GET OUT", Vector3(-HW + 0.015, 1.75, zone_center_lol(3) + 1.5), 90.0, which_zone_is_this(3), 80, 0.005)
+	creepy_writing("blood_look_back", "DON'T\nLOOK BACK", Vector3(HW - 0.015, 1.8, zone_center_lol(5) + 1.5), -90.0, which_zone_is_this(5), 64, 0.005)
+	var ex = _anchor_pos(exit_zone)
+	creepy_eyes("eyes_exit", Vector3(1.4, 2.45, ex.z + 0.35), 0.0, which_zone_is_this(6))
+	creepy_figure("fig_stalker", Vector3(0.7, 0, zone_center_lol(5) - 1.0), 0.0, which_zone_is_this(5))
+	creepy_puddle("blood_door", Vector3(-HW + 0.42, 0.035, zone_center_lol(4)), Vector2(0.75, 1.0), which_zone_is_this(4))
+	creepy_handprints("blood_door_hands", Vector3(-HW + 0.012, 1.45, zone_center_lol(4) + 1.9), 90.0, which_zone_is_this(4))
+	creepy_spot("warp_a", Vector3(0, 1.6, zone_center_lol(2)), which_zone_is_this(2))
+	creepy_spot("warp_b", Vector3(0, 1.6, zone_center_lol(5)), which_zone_is_this(5))
+	creepy_spot("snd_heart", Vector3(HW + 0.8, 1.2, zone_center_lol(3)), which_zone_is_this(3))
+	creepy_spot("snd_scratch", Vector3(-HW - 0.25, 0.9, zone_center_lol(1)), which_zone_is_this(1))
+	creepy_spot("snd_breath", Vector3(2.5, 1.5, 6.0), "the lobby")
 
 
 func _yeet_lights_off(names: Array) -> bool:

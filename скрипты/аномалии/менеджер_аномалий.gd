@@ -1,5 +1,6 @@
 extends RefCounted
 
+const Loc = preload("res://скрипты/ядро/локализация.gd")
 const MEMORY_LENGTH = 8
 
 var rng = RandomNumberGenerator.new()
@@ -52,25 +53,25 @@ func is_answer_right(answer: int) -> bool:
 func gimme_descriptions() -> Array:
 	var output_pile: Array = []
 	for a in active:
-		output_pile.append(a.desc)
+		output_pile.append(Loc.desc(a.desc))
 	return output_pile
 
 
 func hint() -> String:
 	if active.is_empty():
-		return "You sense nothing out of place here."
+		return Loc.t("You sense nothing out of place here.")
 	var a = active[rng.randi_range(0, active.size() - 1)]
-	var where: String = a.zone if a.zone != "" else "this place"
+	var where: String = Loc.zone(a.zone if a.zone != "" else "this place")
 	match a.category:
 		"light":
-			return "Pay attention to the lighting in %s." % where
+			return Loc.t("Pay attention to the lighting in %s.") % where
 		"structure":
-			return "Pay attention to the walls, doors and ceiling in %s." % where
+			return Loc.t("Pay attention to the walls, doors and ceiling in %s.") % where
 		"supernatural":
-			return "Something that should not exist is in %s." % where
+			return Loc.t("Something that should not exist is in %s.") % where
 		"sound":
-			return "Stop walking and listen."
-	return "Pay attention to the objects in %s." % where
+			return Loc.t("Stop walking and listen.")
+	return Loc.t("Pay attention to the objects in %s.") % where
 
 
 func fingerprint(list: Array) -> String:

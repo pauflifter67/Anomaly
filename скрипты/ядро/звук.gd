@@ -128,6 +128,16 @@ func _synthesize_everything(id: String) -> AudioStreamWAV:
 			return _stuff_into_wav(_synth_riser(r), RATE)
 		"boom":
 			return _stuff_into_wav(_synth_boom(r), RATE)
+		"heartbeat":
+			return _stuff_into_wav(_synth_heartbeat(), RATE)
+		"scratch":
+			return _stuff_into_wav(_synth_scratch(r), RATE)
+		"breath":
+			return _stuff_into_wav(_synth_breath(r), RATE)
+		"sting":
+			return _stuff_into_wav(_synth_sting(r), RATE)
+		"glitch":
+			return _stuff_into_wav(_synth_glitch(r), RATE)
 		"amb_hotel":
 			return _stuff_into_wav(_vibes_hotel(r), AMB_RATE, true)
 		"amb_station":
@@ -375,6 +385,90 @@ func _synth_boom(r: RandomNumberGenerator) -> PackedFloat32Array:
 		var t = float(i) / RATE
 		lp += 0.02 * (r.randf_range(-1, 1) - lp)
 		a[i] = (sin(TAU * (48.0 - t * 6.0) * t) * 0.8 + lp * 4.0) * exp(-t * 1.8) * 0.6
+	return a
+
+
+# ---- жуткие звуки ----
+
+# Тук-тук: два глухих удара сердца.
+func _synth_heartbeat() -> PackedFloat32Array:
+	var a = _buffer_thing(0.9)
+	for i in a.size():
+		var t = float(i) / RATE
+		var v = 0.0
+		for hit in [[0.0, 1.0], [0.24, 0.72]]:
+			var dt: float = t - float(hit[0])
+			if dt >= 0.0:
+				var env = exp(-dt * 18.0) * (1.0 - exp(-dt * 350.0))
+				v += sin(TAU * (58.0 - dt * 70.0) * dt) * env * float(hit[1])
+		a[i] = v * 0.95
+	return a
+
+
+# Ногти по дереву: несколько резких шершавых проходов.
+func _synth_scratch(r: RandomNumberGenerator) -> PackedFloat32Array:
+	var a = _buffer_thing(1.6)
+	var prev = 0.0
+	var low = 0.0
+	for i in a.size():
+		var t = float(i) / RATE
+		var x = r.randf_range(-1, 1)
+		var hp = x - prev
+		prev = x
+		low += 0.35 * (hp - low)
+		var v = 0.0
+		for k in 4:
+			var dt = t - k * 0.34 - r.randf() * 0.002
+			var ln = 0.22 + 0.04 * k
+			if dt >= 0.0 and dt < ln:
+				var grit = 0.55 + 0.45 * sin(TAU * (34.0 + k * 9.0) * dt)
+				v += low * sin(PI * dt / ln) * grit
+		a[i] = v * 0.9
+	return a
+
+
+# Тяжёлое медленное дыхание: вдох — пауза — выдох.
+func _synth_breath(r: RandomNumberGenerator) -> PackedFloat32Array:
+	var a = _buffer_thing(3.4)
+	var low = 0.0
+	var band = 0.0
+	for i in a.size():
+		var t = float(i) / RATE
+		var inhale = smoothstep(0.0, 0.5, t) * (1.0 - smoothstep(0.9, 1.3, t))
+		var exhale = smoothstep(1.5, 1.8, t) * (1.0 - smoothstep(2.4, 3.3, t))
+		var fc = 700.0 + 500.0 * inhale - 250.0 * exhale
+		var f = 2.0 * sin(PI * fc / RATE)
+		low += f * band
+		band += f * (r.randf_range(-1, 1) - low - 0.6 * band)
+		a[i] = (band * (inhale * 0.7 + exhale)) * 0.8 + low * exhale * 0.25
+	return a
+
+
+# Резкий хоррор-удар при ошибке: диссонанс + шум + провал вниз.
+func _synth_sting(r: RandomNumberGenerator) -> PackedFloat32Array:
+	var a = _buffer_thing(2.0)
+	var lp = 0.0
+	for i in a.size():
+		var t = float(i) / RATE
+		lp += 0.25 * (r.randf_range(-1, 1) - lp)
+		var drop = 1.0 - 0.35 * minf(t / 1.6, 1.0)
+		var v = 0.0
+		for f in [98.0, 103.8, 146.8, 207.6, 311.1]:
+			v += sin(TAU * f * drop * t + sin(t * 9.0) * 0.4)
+		var env = (1.0 - exp(-t * 90.0)) * exp(-t * 1.6)
+		a[i] = (v * 0.16 + lp * exp(-t * 7.0) * 0.9) * env
+	return a
+
+
+# Цифровой треск глитча.
+func _synth_glitch(r: RandomNumberGenerator) -> PackedFloat32Array:
+	var a = _buffer_thing(0.35)
+	var hold = 0.0
+	for i in a.size():
+		if i % (40 + (i / 300) % 7 * 30) == 0:
+			hold = r.randf_range(-1, 1)
+		var t = float(i) / RATE
+		a[i] = hold * exp(-t * 6.0) * 0.35 * (1.0 if fposmod(t * 37.0, 1.0) > 0.3 else 0.2)
 	return a
 
 

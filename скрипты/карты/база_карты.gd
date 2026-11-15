@@ -15,6 +15,7 @@ var important_lights: Array = []
 var spawn_spot = Transform3D.IDENTITY
 var exit_zone: Area3D
 var force_the_code = false
+var warp_spots: Array = []
 
 
 func _init():
@@ -29,11 +30,13 @@ func build():
 	obj.clear()
 	important_lights.clear()
 	M.clear()
+	warp_spots.clear()
 	var path = the_prebaked_scene()
 	if not force_the_code and path != "" and ResourceLoader.exists(path):
 		_load_prebaked(path)
 	else:
 		_cook_the_map()
+	_spawn_creepy_stuff()
 	_apply_fancy_level()
 
 
@@ -670,6 +673,266 @@ func _yeet_figure(nm: String) -> bool:
 	b.victim = obj[nm]
 	obj[nm].add_child(b)
 	return true
+
+
+# ============ ЖУТЬ: хоррор-аномалии (общие для всех карт) ============
+
+# Карта переопределяет и строит спрятанные жуткие объекты (вызывается после постройки любым путём).
+func _spawn_creepy_stuff():
+	pass
+
+
+func creepy_mat(col: Color, rough = 0.9) -> StandardMaterial3D:
+	return mat(col, rough)
+
+
+func blood_mat() -> StandardMaterial3D:
+	var m = mat(Color(0.32, 0.01, 0.01), 0.12, 0.1)
+	m.clearcoat_enabled = true
+	m.clearcoat = 0.6
+	return m
+
+
+func void_mat() -> StandardMaterial3D:
+	var m = StandardMaterial3D.new()
+	m.albedo_color = Color(0.0, 0.0, 0.0)
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return m
+
+
+# Надпись «кровью» на стене, с потёками. Спрятана, пока аномалия не включит.
+func creepy_writing(nm: String, txt: String, pos: Vector3, rot_y: float, zone: String, size = 120, px = 0.006, shaded = true) -> Node3D:
+	var holder = node(self, nm, pos, rot_y)
+	var r = RandomNumberGenerator.new()
+	r.seed = hash(nm)
+	holder.rotation.z = deg_to_rad(r.randf_range(-4.0, 4.0))
+	var col = Color(0.5, 0.02, 0.015) if shaded else Color(0.62, 0.03, 0.02)
+	var l = text_in_3d_lol(holder, txt, Vector3.ZERO, px, col, size, 0.0, shaded, "bold")
+	l.outline_size = 10
+	l.outline_modulate = Color(0.25, 0.0, 0.0, 0.6)
+	var lines = txt.split("\n")
+	var widest = 0
+	for s in lines:
+		widest = maxi(widest, s.length())
+	var h = size * px
+	var w = widest * h * 0.58
+	var bottom = -lines.size() * h * 0.5
+	var bm = blood_mat()
+	if not shaded:
+		bm = StandardMaterial3D.new()
+		bm.albedo_color = col
+		bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	for i in 6 + widest / 2:
+		var dx = r.randf_range(-w * 0.48, w * 0.48)
+		var ln = r.randf_range(0.08, 0.55)
+		var thick = r.randf_range(0.012, 0.03)
+		box(holder, Vector3(thick, ln, 0.004), Vector3(dx, bottom - ln * 0.5 + h * 0.12, 0.002), bm)
+		ball_lol(holder, thick * 0.9, Vector3(dx, bottom - ln + h * 0.12, 0.003), bm, Vector3(1, 1.4, 0.3))
+	set_here_or_not(holder, false)
+	sign_up_anomaly(nm, holder, "", zone)
+	return holder
+
+
+# Два красных глаза в темноте — и чёрная голова вокруг них.
+func creepy_eyes(nm: String, pos: Vector3, rot_y: float, zone: String) -> Node3D:
+	var e = node(self, nm, pos, rot_y)
+	ball_lol(e, 0.2, Vector3(0, 0.02, -0.08), void_mat(), Vector3(1.0, 1.25, 0.7))
+	var g = glow(Color(1.0, 0.04, 0.02), 9.0)
+	g.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ball_lol(e, 0.04, Vector3(-0.08, 0.04, 0.05), g, Vector3(1.5, 0.7, 0.6))
+	ball_lol(e, 0.04, Vector3(0.08, 0.04, 0.05), g, Vector3(1.5, 0.7, 0.6))
+	var l = omni_light_lol(e, Vector3(0, 0, 0.3), Color(1.0, 0.08, 0.04), 0.35, 1.8)
+	l.shadow_enabled = false
+	set_here_or_not(e, false)
+	sign_up_anomaly(nm, e, "", zone)
+	return e
+
+
+# Высокая худая фигура-силуэт: длинные руки, голова набок, белые точки глаз.
+func creepy_figure(nm: String, pos: Vector3, rot_y: float, zone: String) -> Node3D:
+	var f = node(self, nm, pos, rot_y)
+	# очень тёмный, но освещаемый материал: в темноте — силуэт, фонариком — видно
+	var v = creepy_mat(Color(0.018, 0.016, 0.02), 1.0)
+	pill_lol(f, 0.17, 1.55, Vector3(0, 0.95, 0), v)
+	box(f, Vector3(0.46, 0.12, 0.2), Vector3(0, 1.66, 0), v)
+	var head = node(f, "Head", Vector3(0.05, 1.93, 0.02))
+	head.rotation.z = deg_to_rad(-22.0)
+	ball_lol(head, 0.12, Vector3.ZERO, v, Vector3(0.95, 1.3, 1.0))
+	var eye = StandardMaterial3D.new()
+	eye.albedo_color = Color(0.95, 0.95, 0.9)
+	eye.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ball_lol(head, 0.017, Vector3(-0.045, 0.03, 0.105), eye)
+	ball_lol(head, 0.017, Vector3(0.045, 0.03, 0.105), eye)
+	for sx in [-1.0, 1.0]:
+		var arm = pill_lol(f, 0.045, 1.25, Vector3(sx * 0.27, 1.05, 0.02), v)
+		arm.rotation.z = sx * deg_to_rad(4.0)
+		ball_lol(f, 0.05, Vector3(sx * 0.3, 0.42, 0.02), v, Vector3(0.8, 1.6, 0.8))
+	set_here_or_not(f, false)
+	sign_up_anomaly(nm, f, "", zone)
+	return f
+
+
+# Кровавые отпечатки ладоней, смазанные вниз по стене. Локальная ось +z — наружу из стены.
+func creepy_handprints(nm: String, pos: Vector3, rot_y: float, zone: String, count = 4) -> Node3D:
+	var holder = node(self, nm, pos, rot_y)
+	var r = RandomNumberGenerator.new()
+	r.seed = hash(nm)
+	var bm = mat(Color(0.42, 0.02, 0.015), 0.35)
+	for i in count:
+		var h = node(holder, "Hand%d" % i, Vector3(i * 0.3 + r.randf_range(-0.05, 0.05), -i * 0.16 + r.randf_range(-0.05, 0.05), 0.004 + i * 0.001))
+		h.rotation.z = deg_to_rad(r.randf_range(-28.0, 18.0))
+		h.scale = Vector3(1.8, 1.8, 1.0)
+		ball_lol(h, 0.5, Vector3.ZERO, bm, Vector3(0.085, 0.1, 0.006))
+		for k in 4:
+			var f = pill_lol(h, 0.0095, 0.075 + (0.012 if k in [1, 2] else 0.0), Vector3(-0.03 + k * 0.02, 0.078, 0), bm)
+			f.scale = Vector3(1, 1, 0.25)
+		var th = pill_lol(h, 0.01, 0.065, Vector3(-0.055, 0.0, 0), bm)
+		th.scale = Vector3(1, 1, 0.25)
+		th.rotation.z = 0.85
+		# смазанный след вниз
+		var sl = r.randf_range(0.05, 0.14)
+		ball_lol(h, 0.5, Vector3(r.randf_range(-0.01, 0.01), -0.06 - sl * 0.4, -0.001), bm, Vector3(0.075, sl, 0.004))
+	set_here_or_not(holder, false)
+	sign_up_anomaly(nm, holder, "", zone)
+	return holder
+
+
+# Лужа неправильной формы из нескольких плоских капель.
+func creepy_puddle(nm: String, pos: Vector3, size: Vector2, zone: String) -> Node3D:
+	var p = node(self, nm, pos)
+	var r = RandomNumberGenerator.new()
+	r.seed = hash(nm)
+	var bm = blood_mat()
+	var small = minf(size.x, size.y)
+	var blobs = 4 + int(maxf(size.x, size.y) / small * 2.5)
+	for i in blobs:
+		var d = small * r.randf_range(0.45, 0.85)
+		var off = Vector3(r.randf_range(-0.5, 0.5) * (size.x - d * 0.6), 0.0, r.randf_range(-0.5, 0.5) * (size.y - d * 0.6))
+		var b = ball_lol(p, 0.5, off + Vector3(0, i * 0.0006, 0), bm, Vector3(d, 0.012, d * r.randf_range(0.75, 1.3)))
+		b.rotation.y = r.randf_range(0.0, TAU)
+		b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for i in 3 + blobs / 2:
+		var d = small * r.randf_range(0.06, 0.14)
+		var ang = r.randf_range(0.0, TAU)
+		var off = Vector3(cos(ang) * size.x * 0.62, 0.0, sin(ang) * size.y * 0.62)
+		ball_lol(p, 0.5, off, bm, Vector3(d, 0.01, d))
+	set_here_or_not(p, false)
+	sign_up_anomaly(nm, p, "", zone)
+	return p
+
+
+func creepy_spot(nm: String, pos: Vector3, zone: String) -> Node3D:
+	return sign_up_anomaly(nm, node(self, nm, pos), "", zone) as Node3D
+
+
+# Перевёрнутый предмет.
+func anomaly_flip(kind: String, nm: String, lift: float, desc: String, subt = 2, tags = []):
+	add(kind, nm, desc, "supernatural", subt, _yeet_flip.bind(nm, lift), tags)
+
+
+# Лампа бьётся красным, как сердце.
+func anomaly_heartbeat_light(kind: String, nm: String, desc: String, subt = 1, tags = []):
+	add(kind, nm, desc, "light", subt, _yeet_pulse.bind(nm), tags)
+
+
+# Фигура, которая подкрадывается, пока на неё не смотришь.
+func anomaly_stalker(kind: String, nm: String, desc: String, subt = 1, tags = []):
+	add(kind, nm, desc, "supernatural", subt, _yeet_stalker.bind(nm), tags)
+
+
+func anomaly_eyes(kind: String, nm: String, desc: String, subt = 2, tags = []):
+	add(kind, nm, desc, "supernatural", subt, _yeet_eyes.bind(nm), tags)
+
+
+# Зона искажения: рядом с ней «плывёт» экран (эффект рисует игровой процесс).
+func anomaly_warp(kind: String, nm: String, radius: float, desc: String, subt = 2, tags = []):
+	add(kind, nm, desc, "supernatural", subt, _yeet_warp.bind(nm, radius), tags)
+
+
+# Насколько сильно искажение в точке p (0..1).
+func warp_amount(p: Vector3) -> float:
+	var best = 0.0
+	for s in warp_spots:
+		var d = Vector2(p.x - s[0].x, p.z - s[0].z).length()
+		best = maxf(best, 1.0 - smoothstep(float(s[1]) * 0.3, float(s[1]), d))
+	return best
+
+
+func _yeet_show_many(names: Array) -> bool:
+	var ok = false
+	for nm in names:
+		ok = _yeet_show(nm) or ok
+	return ok
+
+
+func _yeet_flip(nm: String, lift: float) -> bool:
+	var n = _find_node_lol(nm)
+	if n == null or not n.visible:
+		return false
+	n.rotation.z += PI
+	n.position.y += lift
+	return true
+
+
+func _yeet_pulse(nm: String) -> bool:
+	if not _yeet_light_color(nm, Color(0.9, 0.04, 0.02)):
+		return false
+	var n = _find_node_lol(nm)
+	var d = _lamp_lol(n)
+	var b = Behaviour.new()
+	b.mode = "pulse"
+	b.victim = n
+	b.lights = d["lights"]
+	b.glow_pile = d["glows"]
+	b.remember_energy()
+	n.add_child(b)
+	return true
+
+
+func _yeet_stalker(nm: String) -> bool:
+	if not _yeet_show(nm):
+		return false
+	var b = Behaviour.new()
+	b.mode = "stalk"
+	b.speed = 1.1
+	b.victim = obj[nm]
+	obj[nm].add_child(b)
+	return true
+
+
+func _yeet_eyes(nm: String) -> bool:
+	if not _yeet_show(nm):
+		return false
+	var b = Behaviour.new()
+	b.mode = "blink"
+	b.victim = obj[nm]
+	obj[nm].add_child(b)
+	return true
+
+
+func _yeet_warp(nm: String, radius: float) -> bool:
+	var n = _find_node_lol(nm)
+	if n == null:
+		return false
+	warp_spots.append([n.global_position if n.is_inside_tree() else n.position, radius])
+	return true
+
+
+func _yeet_creak(nm: String) -> bool:
+	var n = _find_node_lol(nm)
+	if n == null or not n.visible or n.get_node_or_null("Hinge") == null:
+		return false
+	var b = Behaviour.new()
+	b.mode = "creak"
+	b.victim = n
+	n.add_child(b)
+	return true
+
+
+func _anchor_pos(n: Node3D) -> Vector3:
+	if n == null:
+		return Vector3.ZERO
+	return n.global_position if n.is_inside_tree() else n.position
 
 
 func _yeet_sound(nm: String, sound: String, interval: float, vol: float) -> bool:

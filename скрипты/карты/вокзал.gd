@@ -447,9 +447,9 @@ func make_the_anomaly_list() -> Array:
 	for k in 4:
 		lamp_pile.append("lamp_c%d" % k)
 	for ln in lamp_pile:
-		anomaly_lights_out("lamp_off", ln, cap(label_it(ln)) + " was switched off.", 2)
-		anomaly_paint_light("lamp_red", ln, red, cap(label_it(ln)) + " glowed red.", 1)
-		anomaly_disco("lamp_flicker", ln, cap(label_it(ln)) + " was flickering.", 1)
+		anomaly_lights_out("lamp_off", ln, cap(label_it(ln)) + " was switched off.", 2, [ln])
+		anomaly_paint_light("lamp_red", ln, red, cap(label_it(ln)) + " glowed red.", 1, [ln])
+		anomaly_disco("lamp_flicker", ln, cap(label_it(ln)) + " was flickering.", 1, [ln])
 	anomaly_lights_out("vending_off", "vending", "The vending machine was switched off.", 2)
 	anomaly_lights_out("tickets_dark", "tickets", "The ticket office windows were dark.", 2)
 	anomaly_paint_light("exit_sign_red", "exit_sign", Color(1.0, 0.1, 0.05), "The WAY OUT sign glowed red instead of yellow.", 2)
@@ -507,7 +507,38 @@ func make_the_anomaly_list() -> Array:
 	anomaly_change_text("name_sign", "name_R", "HOLLOWMERF", "The station sign on the right wall read HOLLOWMERF instead of HOLLOWMERE.", 3)
 	for i in N:
 		anomaly_swap_mat("pillar_color", "pillar_%d" % i, "iron_red", cap(label_it("pillar_%d" % i)) + " was painted red instead of green.", 3)
+
+	# ---- жуть ----
+	anomaly_show_it("blood_writing", "blood_no_way_out", "Huge red letters \"NO WAY OUT\" were smeared on the wall across the left track.", 1, "supernatural")
+	anomaly_show_it("blood_writing", "blood_behind_you", "Huge red letters \"LOOK BEHIND YOU\" were smeared on the wall across the right track.", 1, "supernatural")
+	anomaly_eyes("red_eyes", "eyes_track", "Two red eyes glowed on the right track at the far end of the station.", 2)
+	anomaly_stalker("stalker", "fig_stalker", "A dark figure crept closer every time you looked away.", 1, ["figure"])
+	anomaly_show_it("blood_trail", "blood_trail", "A trail of dark red liquid led to the edge of the platform.", 2, "supernatural")
+	anomaly_warp("warp", "warp_a", 4.5, "The air at %s was warping — the walls seemed to breathe." % which_zone_is_this(1), 2)
+	anomaly_warp("warp", "warp_b", 4.5, "The air in %s was warping — the walls seemed to breathe." % which_zone_is_this(4), 2)
+	for b in ["bench_2a", "bench_5b"]:
+		anomaly_flip("bench_flipped", b, 0.85, cap(label_it(b)) + " was upside down.", 2, [b])
+	for ln in ["lamp_1", "lamp_4"]:
+		anomaly_heartbeat_light("lamp_heartbeat", ln, cap(label_it(ln)) + " pulsed red like a heartbeat.", 1, [ln])
+	anomaly_noise("heartbeat", "snd_heart", "heartbeat", 1.25, 6.0, "A heartbeat came from beneath the platform.", 2)
+	anomaly_noise("scratching", "snd_scratch", "scratch", 4.5, 3.0, "Something was scratching on the inside of the ticket office windows.", 2)
+	anomaly_noise("breathing", "snd_breath", "breath", 5.0, 6.0, "Slow, heavy breathing came out of the far tunnel.", 2)
 	return lib
+
+
+func _spawn_creepy_stuff():
+	var L = N * SEC
+	creepy_writing("blood_no_way_out", "NO WAY\nOUT", Vector3(-HX + 0.03, 2.05, zone_center_lol(4)), 90.0, which_zone_is_this(4), 120, 0.006, false)
+	creepy_writing("blood_behind_you", "LOOK BEHIND YOU", Vector3(HX - 0.03, 2.2, -8.0), -90.0, which_zone_is_this(1), 120, 0.006, false)
+	creepy_eyes("eyes_track", Vector3(TX, TY + 1.5, -L + 1.0), 0.0, which_zone_is_this(6))
+	creepy_figure("fig_stalker", Vector3(1.3, 0, zone_center_lol(6)), 0.0, which_zone_is_this(6))
+	creepy_puddle("blood_trail", Vector3(-2.7, 0.014, zone_center_lol(3) + 0.6), Vector2(0.45, 3.2), which_zone_is_this(3))
+	creepy_spot("warp_a", Vector3(0, 1.6, zone_center_lol(1)), which_zone_is_this(1))
+	creepy_spot("warp_b", Vector3(0, 1.6, zone_center_lol(4)), which_zone_is_this(4))
+	creepy_spot("snd_heart", Vector3(0, -0.6, zone_center_lol(3)), which_zone_is_this(3))
+	var tk = _find_node_lol("tickets")
+	creepy_spot("snd_scratch", _anchor_pos(tk) + Vector3(0, 1.3, 0), "the concourse")
+	creepy_spot("snd_breath", Vector3(-TX, 0.5, -L - 1.0), which_zone_is_this(6))
 
 
 func _yeet_hide_many(names: Array) -> bool:

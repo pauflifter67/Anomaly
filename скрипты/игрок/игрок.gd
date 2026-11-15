@@ -12,6 +12,7 @@ var cam: Camera3D
 var torch_thingy: SpotLight3D
 var laser_stick: RayCast3D
 var can_i_move_lol = true
+var speed_mult = 1.0  # множитель скорости (пространственные дыры замедляют)
 var footstep_pitch = 1.0
 var step_loudness = -13.0
 
@@ -97,7 +98,7 @@ func _physics_process(delta: float):
 		if go_dir.length() > 1.0:
 			go_dir = go_dir.normalized()
 		sprint = Input.is_action_pressed("sprint")
-	var victim = go_dir * (ZOOMIES if sprint else SLOW_WALK)
+	var victim = go_dir * (ZOOMIES if sprint else SLOW_WALK) * speed_mult
 	var k = 1.0 - exp(-SPEEDUP * delta)
 	velocity.x = lerpf(velocity.x, victim.x, k)
 	velocity.z = lerpf(velocity.z, victim.z, k)

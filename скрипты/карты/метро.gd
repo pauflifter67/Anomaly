@@ -396,9 +396,9 @@ func make_the_anomaly_list() -> Array:
 		lamp_pile.append("lamp_%d" % i)
 		lamp_pile.append("tube_%d" % i if i % 2 == 0 else "lamp_f%d" % i)
 	for ln in lamp_pile:
-		anomaly_lights_out("lamp_off", ln, cap(label_it(ln)) + " was off.", 2)
-		anomaly_paint_light("lamp_color", ln, Color(0.35, 1.0, 0.35), cap(label_it(ln)) + " glowed green.", 1)
-		anomaly_disco("lamp_flicker", ln, cap(label_it(ln)) + " was flickering.", 1)
+		anomaly_lights_out("lamp_off", ln, cap(label_it(ln)) + " was off.", 2, [ln])
+		anomaly_paint_light("lamp_color", ln, Color(0.35, 1.0, 0.35), cap(label_it(ln)) + " glowed green.", 1, [ln])
+		anomaly_disco("lamp_flicker", ln, cap(label_it(ln)) + " was flickering.", 1, [ln])
 	anomaly_paint_light("signal_green", "signal_near", Color(0.1, 1.0, 0.3), "The signal at the near tunnel was green instead of red.", 2)
 	anomaly_paint_light("signal_green", "signal_far", Color(0.1, 1.0, 0.3), "The signal at the far tunnel was green instead of red.", 2)
 	anomaly_lights_out("exit_light_off", "exit_sign", "The WAY OUT sign was not lit.", 2)
@@ -414,7 +414,7 @@ func make_the_anomaly_list() -> Array:
 	anomaly_hide_it("ext_gone", "ext", "The fire extinguisher was missing.", 2)
 	anomaly_scoot("ext_moved", "ext", Vector3(0, 0, 0.9), 0.0, "The fire extinguisher had moved along the wall.", 3)
 	for b in ["bench_0", "bench_2", "bench_4", "bench_6"]:
-		anomaly_hide_it("bench_gone", b, cap(label_it(b)) + " was missing.", 2)
+		anomaly_hide_it("bench_gone", b, cap(label_it(b)) + " was missing.", 2, "object", [b])
 	for d in ["door_1", "door_5"]:
 		add("door_open", d, cap(label_it(d)) + " was open.", "object", 2, _yeet_door_open.bind(d), [d])
 	anomaly_show_it("door_extra", "door_x", "A third STAFF ONLY door appeared in the middle of the platform.", 2, "structure")
@@ -433,7 +433,34 @@ func make_the_anomaly_list() -> Array:
 	anomaly_noise("whisper", "snd_whisper", "whisper", 6.0, 4.0, "Whispering came from behind the STAFF ONLY door at the far end.", 2)
 	anomaly_noise("distant_train", "snd_train", "train_far", 12.0, 6.0, "A train could be heard in the tunnel behind you — on a line closed for 19 years.", 2)
 	add("longer", "platform", "The platform was longer — an extra section appeared before the exit.", "structure", 2, _prep_lol_longer, ["length"], true)
+
+	# ---- жуть ----
+	anomaly_show_it("blood_writing", "blood_never_left", "Red letters \"THEY NEVER LEFT\" were smeared on the far wall across the tracks.", 1, "supernatural")
+	anomaly_eyes("red_eyes", "eyes_tunnel", "Two red eyes glowed deep inside the far tunnel.", 2)
+	anomaly_stalker("stalker", "fig_stalker", "A dark figure crept closer every time you looked away.", 1, ["figure"])
+	anomaly_show_it("blood_pool", "blood_pool", "A pool of dark red liquid spread across the platform.", 2, "supernatural")
+	anomaly_warp("warp", "warp_a", 4.0, "The air in %s was warping — the walls seemed to breathe." % which_zone_is_this(2), 2)
+	anomaly_warp("warp", "warp_b", 4.0, "The air at %s was warping — the walls seemed to breathe." % which_zone_is_this(5), 2)
+	for b in ["bench_2", "bench_4"]:
+		anomaly_flip("bench_flipped", b, 0.85, cap(label_it(b)) + " was upside down.", 2, [b])
+	for ln in ["lamp_1", "lamp_4"]:
+		anomaly_heartbeat_light("lamp_heartbeat", ln, cap(label_it(ln)) + " pulsed red like a heartbeat.", 1, [ln])
+	anomaly_noise("heartbeat", "snd_heart", "heartbeat", 1.25, 5.0, "A heartbeat came from behind the STAFF ONLY door at the start of the platform.", 2)
+	anomaly_noise("scratching", "snd_scratch", "scratch", 4.5, 4.0, "Something was scratching under the edge of the platform.", 2)
 	return lib
+
+
+func _spawn_creepy_stuff():
+	var L: float = params["sections"] * SEC
+	creepy_writing("blood_never_left", "THEY NEVER\nLEFT", Vector3(XF - 0.03, 2.3, zone_center_lol(2)), -90.0, which_zone_is_this(2), 100, 0.006, false)
+	creepy_eyes("eyes_tunnel", Vector3(TX, TY + 1.4, -L - 4.0), 0.0, which_zone_is_this(6))
+	creepy_figure("fig_stalker", Vector3(0.0, 0, zone_center_lol(6)), 0.0, which_zone_is_this(6))
+	creepy_puddle("blood_pool", Vector3(0.5, 0.014, zone_center_lol(4)), Vector2(1.4, 1.1), which_zone_is_this(4))
+	creepy_spot("warp_a", Vector3(0, 1.6, zone_center_lol(2)), which_zone_is_this(2))
+	creepy_spot("warp_b", Vector3(0, 1.6, zone_center_lol(5)), which_zone_is_this(5))
+	var d1 = _find_node_lol("door_1")
+	creepy_spot("snd_heart", _anchor_pos(d1) + Vector3(-0.6, 1.2, 0), which_zone_is_this(1))
+	creepy_spot("snd_scratch", Vector3(XE + 0.3, -0.4, zone_center_lol(3)), which_zone_is_this(3))
 
 
 func _yeet_door_open(nm: String) -> bool:

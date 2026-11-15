@@ -10,6 +10,8 @@ const FACTORY_SETTINGS = {
 	"fov": 75.0,
 	"volume": 0.8,
 	"head_bob": true,
+	"language": "en",
+	"fx": true,
 }
 
 var path = "user://second_wind.cfg"
@@ -107,6 +109,14 @@ func when_we_win_round(map_id: String, diff_id: String, cleared_in_run: int) -> 
 			opened = nxt["title"]
 	stuff_save_in_box()
 	return opened
+
+
+# Убежал от монстра в режиме погони: рекорд хранится под ключом "карта/chase"
+func when_we_outrun_monster(map_id: String, escaped_in_run: int):
+	cleared_total_lol += 1
+	var key = map_id + "/chase"
+	best[key] = maxi(int(best.get(key, 0)), escaped_in_run)
+	stuff_save_in_box()
 
 
 func oopsie_happened():

@@ -8,6 +8,8 @@ const GAME_SCENE = "res://сцены/игра/игра.tscn"
 
 var progress = Progress.new()
 var nerd_mode = false
+var tutorial_mode = false
+var chase_mode = false  # режим "только погоня"
 
 var _font_stash = {}
 var _black_rect: ColorRect
